@@ -1,18 +1,17 @@
 """
 MIT BWSI Autonomous RACECAR
 MIT License
-racecar-neo-prereq-labs
+racecar-neo
 
-File Name: template.py << [Modify with your own file name!]
+File Name: grand_prix.py
 
-Title: [PLACEHOLDER] << [Modify with your own title]
+Title: Grand Prix Code
 
-Author: [PLACEHOLDER] << [Write your name or team name here]
+Author: Ferrari Rochers - Mihir Tare, Vyom Siriyapu, Andrew Sperry, Adhyayan (Adi) Gupta
 
-Purpose: [PLACEHOLDER] << [Write the purpose of the script here]
+Purpose: Compile the work of our 4 weeks at BWSI into one final code to run through the 2025 summer Grand Prix.
 
-Expected Outcome: [PLACEHOLDER] << [Write what you expect will happen when you run
-the script.]
+Expected Outcome: Win!!!
 """
 
 ########################################################################################
@@ -23,7 +22,7 @@ import sys
 
 # If this file is nested inside a folder in the labs folder, the relative path should
 # be [1, ../../library] instead.
-sys.path.insert(0, '../library')
+sys.path.insert(1, '../library')
 import racecar_core
 import racecar_utils as rc_utils
 
@@ -131,14 +130,17 @@ def calc_angle(angle):
         return 360 + angle
     return angle
 
-def path_planner(left_bound, right_bound, p):
+def path_planner(left_bound, right_bound, p, speed1, speed2):
+    """
+    Define function for our wall follower.
+    Params: Left bound and right bound of angles to search through as well as coefficient that converts algorithm to racecar angle
+            also the speeds to drive at
+    """
     global angle, speed
 
-    scan = rc.lidar.get_samples()
-    sweep_range_deg = 120         # Total sweep range (-60° to +60°)
+    scan = rc.lidar.get_samples() # collect LIDAR samples from racecar
     triangle_span_deg = 30        # Width of each triangle
     triangle_depth = 100          # How far out to check (meters)
-    min_clearance = 150           # Required clearance inside triangle
     angle_step = 2    
 
     best_direction = 0
@@ -146,7 +148,9 @@ def path_planner(left_bound, right_bound, p):
 
     required_clearance = 120
 
+    # loop through each angle for the bounds given in the paramters
     for center_angle in range(left_bound, right_bound, angle_step):
+        # find the start angle and end angle for each individual triangle
         start_angle = center_angle - triangle_span_deg // 2
         end_angle = center_angle + triangle_span_deg // 2
         
@@ -154,21 +158,28 @@ def path_planner(left_bound, right_bound, p):
         # Sample LiDAR points inside triangle
         inside = []
         for angle in range(start_angle, end_angle + 1):
-            dist = rc_utils.get_lidar_average_distance(scan, calc_angle(angle))
-            if dist > triangle_depth:
-                inside.append(dist)
+            dist = rc_utils.get_lidar_average_distance(scan, calc_angle(angle)) # find the average distance for each angle
+            if dist > triangle_depth: 
+                inside.append(dist) # append the distances that are greater than the depth we are looking for
+    
 
         # Check clearance
         if len(inside) == 0 or min(inside) < required_clearance:
+            # ignore the angle if the smallest clearance in the triangle is less that required clearance
             continue
-        min_dist = min(inside)
+        min_dist = min(inside) 
         
+        # determine if this is the most reliable angle if it has the maximum minimum clearance
         if min_dist > max_clearance:
             best_direction = center_angle
             max_clearance = min_dist
 
+    # calculate ouput angle based on the best direction determined and multiplying it (or dividing)by the coefficient in the parameters
     angle = best_direction / p
-    speed = 0.6 if abs(best_direction) > 45 else 0.6
+    # set speed based on the best direciton
+    speed = speed1 if abs(best_direction) > 45 else speed2
+
+    #clamp speed and angle
     speed = rc_utils.clamp(speed, -1.0, 1.0)
     angle = rc_utils.clamp(angle, -1.0, 1.0)
 
@@ -252,8 +263,10 @@ def update():
     print(last_marker_id)
 
     # run wall follower/path planner for the first part of the grand prix (id = 1)    
+    if last_marker_id is None:
+        path_planner(-60, 61, 70, 1, 0.6)
     if last_marker_id == 1:
-        path_planner(-30, 31, 70)
+        path_planner(-30, 31, 70, 1, 0.6)
     # Run cone slalom code for the second part of the course (id = 2)
     if last_marker_id == 2:
         cone_slalom()
@@ -269,6 +282,8 @@ def update():
     if last_marker_id == 4:
         path_planner(-45, 16, 70)
         # line_follow(GREEN, BLUE)
+    if last_marker_id == 5:
+        path_planner(-75, 76, 70, 1, 0.6)
     
 
     # set speed and angle
